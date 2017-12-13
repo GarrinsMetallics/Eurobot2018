@@ -1,0 +1,37 @@
+
+Fonaments basisc de i2c amb links d'interes.
+
+
+
+
+
+
+
+1 estado de reposo, 0 valor forzado y por tanto comunicacion.
+
+direccion de 7 bits
+Arduino:
+ el pin analógico 4(SDA) y el pin analógico 5(SCL).
+incluir la librería Wire con #include <Wire.h>.
+
+Una vez iniciado el bus podemos empezar a transmitir. Para ello se usan 3 instrucciones:
+Wire.beginTransmission(dirección) :Inicia el bus y ponemos con que dirección vamos a comunicarnos.
+ Wire.write(bytes): Esta función envía uno o varios bytes a la dirección anterior.    
+ Wire.endTransmission(): Finaliza la comunicación con un STOP y deja el bus libre.
+Wire.onRecive event(funcion de interrupcion)
+while(Wire.available)
+
+((
+variable=Wire.read();"byte 1"(sempre en format byte si cal posar "byte variable"
+variable=Wire.read();"byte 2"
+))
+
+Wire.requestFrom(direccion,num.bytes)
+
+
+http://www.electroensaimada.com/i2c.html
+
+direccio en hexadecimal ex: 0xF5--> F=1111 5=0101
+
+
+https://oscarliang.com/raspberry-pi-arduino-connected-i2c/
