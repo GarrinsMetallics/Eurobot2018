@@ -1,0 +1,76 @@
+#include <avr/interrupt.h>
+#include "TimerOne.h"
+#include <PID_v1.h>
+
+#define PIN_OUTPUT 5
+#define DIR 6
+
+#define NUMPI 3.1415926
+#define POLSOSVOLTA 663 //total de polsos per volta
+#define ANGLE 0.5429864 //graus per un pols
+#define TS 30000 //us
+#define RADI 30 //mm
+
+int encoderPin1 = 3, encoderPin2 = 2;
+volatile float pas=0,oldpas=0;
+volatile float dist=0;
+volatile float vel=0;
+volatile float resultat=0;
+
+//_____________________________PID_______________________________________________
+double Setpoint, Input, Output;//Kp=0.07, Ki=0.3, Kd=0.000035;
+double Kp=0.07, Ki=0.3, Kd=0.000035;
+PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
+
+void setup() {
+  Serial.begin(250000);
+  //_____________________ENCODER_________________________________________
+  pinMode(encoderPin1, INPUT); 
+  pinMode(encoderPin2, INPUT); 
+  digitalWrite(encoderPin1, HIGH);
+  attachInterrupt(0, updateEncoder1, RISING);
+  digitalWrite(encoderPin2, HIGH);
+  attachInterrupt(0, updateEncoder2, RISING);
+  
+  //_____________________MOTOR_________________________________________________
+  pinMode(PIN_OUTPUT, OUTPUT);
+  pinMode(DIR, OUTPUT);
+
+  //__________________________TIMER________________________________________
+  Timer1.initialize(TS);         // initialize timer1, and set a 1/2 second period
+  Timer1.pwm(9, 512);                // setup pwm on pin 9, 50% duty cycle
+  Timer1.attachInterrupt(callback);  // attaches callback() as a timer overflow interrupt
+
+  //____________________________PID________________________________________________
+  Input = vel;
+  Setpoint = 250;
+  myPID.SetMode(AUTOMATIC);
+  delay(3000);
+}
+
+void loop() {
+  sei();
+  digitalWrite(DIR, HIGH);
+  Input = vel;
+  myPID.Compute();
+  analogWrite(PIN_OUTPUT, Output);
+}
+
+void callback()
+{
+  resultat = pas-oldpas;
+  dist = (resultat*ANGLE*2*NUMPI*RADI*1000000)/360;
+  vel =  (dist)/TS;  //mm/s
+  oldpas = pas;
+  Serial.println(vel);
+}
+
+void updateEncoder1()
+{
+    pas++;
+}
+
+void updateEncoder2()
+{
+    pas++;
+}
