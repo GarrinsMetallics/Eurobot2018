@@ -19,11 +19,12 @@ volatile float resultat=0;
 
 //_____________________________PID_______________________________________________
 double Setpoint, Input, Output;//Kp=0.07, Ki=0.3, Kd=0.000035;
-double Kp=0.07, Ki=0.3, Kd=0.000035;
+double Kp=0.4, Ki=1.1, Kd=0.002;
 PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
 
 void setup() {
   Serial.begin(250000);
+  delay(6000);
   //_____________________ENCODER_________________________________________
   pinMode(encoderPin1, INPUT); 
   pinMode(encoderPin2, INPUT); 
@@ -45,7 +46,6 @@ void setup() {
   Input = vel;
   Setpoint = 250;
   myPID.SetMode(AUTOMATIC);
-  delay(3000);
 }
 
 void loop() {
