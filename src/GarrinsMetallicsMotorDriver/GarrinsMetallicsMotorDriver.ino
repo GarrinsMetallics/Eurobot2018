@@ -2,7 +2,7 @@
 #include <TimerOne.h>
 #include <PID_v1.h>
 
-#define DEV_ID (101)
+#define DEV_ID (202)
 #define FW_VER (0001)
 
 #define ENCODER_PIN_1 3
