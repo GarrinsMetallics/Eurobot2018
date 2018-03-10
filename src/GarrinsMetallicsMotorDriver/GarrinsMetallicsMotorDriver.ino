@@ -3,7 +3,7 @@
 #include <PID_v1.h>
 #include <avr/wdt.h>
 
-#define DEV_ID (202)
+#define DEV_ID (101)
 #define FW_VER (0001)
 
 #define ENCODER_PIN_1 3
@@ -171,12 +171,12 @@ static void replyGarrinsMsg(GarrinsMsg* msg) {
       resp_msg.value = millis();
       break;
     case GET_SPEED:
-      resp_msg.value = (uint32_t)motor_speed;
+      resp_msg.value = (int32_t)motor_speed;
       break;
     case SET_SPEED:
       robot_state = ROBOT_MOVING;
       Setpoint_speed = (double)msg->value;
-      resp_msg.value = (uint32_t)Setpoint_speed;
+      resp_msg.value = (int32_t)Setpoint_speed;
       break;
     case GET_STEPS:
       resp_msg.value = pulses;
@@ -192,7 +192,7 @@ static void replyGarrinsMsg(GarrinsMsg* msg) {
     case SET_POSITION:
       robot_state = ROBOT_MOVING;
       setpoint_distance = (double)msg->value;
-      resp_msg.value = (uint32_t)setpoint_distance;
+      resp_msg.value = (int32_t)setpoint_distance;
       break;
     case GET_STATE:
       resp_msg.value = robot_state;
