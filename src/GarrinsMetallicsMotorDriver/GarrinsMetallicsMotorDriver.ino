@@ -56,7 +56,7 @@ double Kp = 0.4;
 double Ki = 1.1;
 double Kd = 0.002;
 
-PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
+PID myPID(&Input, &Output, &Setpoint_speed, Kp, Ki, Kd, DIRECT);
 
 void setup() {
   Serial.begin(115000);
@@ -110,7 +110,7 @@ void callback() {
   delta_distance = (delta_pulses * ANGLE * 2 * NUMPI * RADIUS) / 360;
   motor_speed =  (delta_distance * 1000000)/ DELTA_TIME; //mm/s
   last_pulses = pulses;
-  current_distance = (2*NUMPI*RADI*pulses)/PPR;
+  current_distance = (2*NUMPI*RADIUS*pulses)/PPR;
 }
 
 void updatePulsesEncoder1() {
@@ -159,8 +159,8 @@ static void replyGarrinsMsg(GarrinsMsg* msg) {
       resp_msg.value = (uint32_t)motor_speed;
       break;
     case SET_SPEED:
-      Setpoint = (double)msg->value;
-      resp_msg.value = (uint32_t)Setpoint;
+      Setpoint_speed = (double)msg->value;
+      resp_msg.value = (uint32_t)Setpoint_speed;
       break;
     case GET_STEPS:
       resp_msg.value = pulses;
