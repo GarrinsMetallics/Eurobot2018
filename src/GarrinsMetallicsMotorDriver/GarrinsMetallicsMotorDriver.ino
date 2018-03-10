@@ -1,6 +1,7 @@
 #include <avr/interrupt.h>
 #include <TimerOne.h>
 #include <PID_v1.h>
+#include <avr/wdt.h>
 
 #define DEV_ID (202)
 #define FW_VER (0001)
@@ -16,6 +17,12 @@
 #define DELTA_TIME 30000 // 0.03 s  -> 30000us
 #define RADIUS 30 // mm
 
+enum STATES {
+  ROBOT_IDLE = 10,
+  ROBOT_MOVING,
+  ROBOT_BLOCKED
+};
+
 enum MSG_CMD {
   DRIVER_ID = 1,
   FW_VERSION,
@@ -25,7 +32,8 @@ enum MSG_CMD {
   GET_STEPS,
   SET_STEPS,
   GET_POSITION,
-  SET_POSITION
+  SET_POSITION,
+  GET_STATE
 };
 
 enum MSG_TYPE {
@@ -40,6 +48,7 @@ typedef struct {
 } GarrinsMsg;
 
 static GarrinsMsg req_msg;
+static int robot_state = ROBOT_IDLE;
 
 volatile double pulses = 0;
 volatile double last_pulses = 0;
@@ -79,7 +88,7 @@ void setup() {
   myPID.SetMode(AUTOMATIC);
 
   sei();
-
+  wdt_enable(WDTO_500MS);
 }
 
 void loop() {
@@ -90,8 +99,12 @@ void loop() {
     Setpoint_speed = 250;
   else if(current_distance+150 > setpoint_distance && current_distance < setpoint_distance)
     Setpoint_speed = 90;
-  else
+  else {
     Setpoint_speed = 0;
+    pulses = 0;
+    setpoint_distance = 0;
+    robot_state = ROBOT_IDLE;
+  }
   if(setpoint_distance>=0)
     digitalWrite(DIRECTION_PIN, HIGH);
   else
@@ -101,6 +114,8 @@ void loop() {
   if(Setpoint_speed == 0 || setpoint_distance==0)
     Output=0;
   analogWrite(OUTPUT_PIN, Output);
+
+  wdt_reset();
 
   delay(50);
 }
@@ -159,6 +174,7 @@ static void replyGarrinsMsg(GarrinsMsg* msg) {
       resp_msg.value = (uint32_t)motor_speed;
       break;
     case SET_SPEED:
+      robot_state = ROBOT_MOVING;
       Setpoint_speed = (double)msg->value;
       resp_msg.value = (uint32_t)Setpoint_speed;
       break;
@@ -166,13 +182,20 @@ static void replyGarrinsMsg(GarrinsMsg* msg) {
       resp_msg.value = pulses;
       break;
     case SET_STEPS:
+      robot_state = ROBOT_MOVING;
       pulses = msg->value;
       resp_msg.value = pulses;
+      break;
     case GET_POSITION:
       resp_msg.value = current_distance;
       break;
     case SET_POSITION:
+      robot_state = ROBOT_MOVING;
       setpoint_distance = (double)msg->value;
+      resp_msg.value = (uint32_t)setpoint_distance;
+      break;
+    case GET_STATE:
+      resp_msg.value = robot_state;
       break;
   }
 
