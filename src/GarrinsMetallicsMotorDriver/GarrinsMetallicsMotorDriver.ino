@@ -13,7 +13,7 @@
 #define NUMPI 3.1415926
 #define PPR 663 // total pulses per revolution
 #define ANGLE 0.5429864 // degree per pulse
-#define DELTA_TIME 30000 // 0.03 s
+#define DELTA_TIME 30000 // 0.03 s  -> 30000us
 #define RADIUS 30 // mm
 
 enum MSG_CMD {
@@ -23,7 +23,9 @@ enum MSG_CMD {
   GET_SPEED,
   SET_SPEED,
   GET_STEPS,
-  SET_STEPS
+  SET_STEPS,
+  GET_POSITION,
+  SET_POSITION
 };
 
 enum MSG_TYPE {
@@ -44,8 +46,10 @@ volatile double last_pulses = 0;
 volatile double delta_distance = 0;
 volatile double motor_speed = 0;
 volatile double delta_pulses = 0;
+volatile double current_distance = 0; //mm
+volatile double setpoint_distance = 0;  //mm
 
-double Setpoint;
+double Setpoint_speed;
 double Input;
 double Output;
 double Kp = 0.4;
@@ -55,8 +59,7 @@ double Kd = 0.002;
 PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
 
 void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(9600);
+  Serial.begin(115000);
 
   pinMode(ENCODER_PIN_1, INPUT);
   pinMode(ENCODER_PIN_2, INPUT);
@@ -72,7 +75,7 @@ void setup() {
   Timer1.attachInterrupt(callback);  // attaches callback() as a timer overflow interrupt
 
   Input = motor_speed;
-  Setpoint = 0;
+  Setpoint_speed = 0;
   myPID.SetMode(AUTOMATIC);
 
   sei();
@@ -83,10 +86,20 @@ void loop() {
   if (receiveGarrinsMsg(&req_msg)) {
     replyGarrinsMsg(&req_msg);
   }
-
-  digitalWrite(DIRECTION_PIN, HIGH);
+  if(current_distance+150 < setpoint_distance)
+    Setpoint_speed = 250;
+  else if(current_distance+150 > setpoint_distance && current_distance < setpoint_distance)
+    Setpoint_speed = 90;
+  else
+    Setpoint_speed = 0;
+  if(setpoint_distance>=0)
+    digitalWrite(DIRECTION_PIN, HIGH);
+  else
+    digitalWrite(DIRECTION_PIN, LOW);
   Input = motor_speed;
   myPID.Compute();
+  if(Setpoint_speed == 0 || setpoint_distance==0)
+    Output=0;
   analogWrite(OUTPUT_PIN, Output);
 
   delay(50);
@@ -97,14 +110,21 @@ void callback() {
   delta_distance = (delta_pulses * ANGLE * 2 * NUMPI * RADIUS) / 360;
   motor_speed =  (delta_distance * 1000000)/ DELTA_TIME; //mm/s
   last_pulses = pulses;
+  current_distance = (2*NUMPI*RADI*pulses)/PPR;
 }
 
 void updatePulsesEncoder1() {
-  pulses++;
+  if(setpoint_distance>=0)
+    pulses++;
+  else
+    pulses--;
 }
 
 void updatePulsesEncoder2() {
-  pulses++;
+  if(setpoint_distance>=0)
+    pulses++;
+  else
+    pulses--;
 }
 
 static bool receiveGarrinsMsg(GarrinsMsg* msg) {
@@ -148,9 +168,13 @@ static void replyGarrinsMsg(GarrinsMsg* msg) {
     case SET_STEPS:
       pulses = msg->value;
       resp_msg.value = pulses;
+    case GET_POSITION:
+      resp_msg.value = current_distance;
+      break;
+    case SET_POSITION:
+      setpoint_distance = (double)msg->value;
       break;
   }
 
   Serial.write((uint8_t*)&resp_msg, sizeof(GarrinsMsg));
 }
-
