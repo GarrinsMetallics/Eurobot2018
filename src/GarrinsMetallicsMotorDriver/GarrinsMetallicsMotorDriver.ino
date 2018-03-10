@@ -95,6 +95,13 @@ void loop() {
   if (receiveGarrinsMsg(&req_msg)) {
     replyGarrinsMsg(&req_msg);
   }
+  if(setpoint_distance>=0){
+    digitalWrite(DIRECTION_PIN, HIGH);
+  }
+  else{
+    digitalWrite(DIRECTION_PIN, LOW);
+    setpoint_distance = abs(setpoint_distance);
+  }
   if(current_distance+150 < setpoint_distance)
     Setpoint_speed = 250;
   else if(current_distance+150 > setpoint_distance && current_distance < setpoint_distance)
@@ -105,10 +112,6 @@ void loop() {
     setpoint_distance = 0;
     robot_state = ROBOT_IDLE;
   }
-  if(setpoint_distance>=0)
-    digitalWrite(DIRECTION_PIN, HIGH);
-  else
-    digitalWrite(DIRECTION_PIN, LOW);
   Input = motor_speed;
   myPID.Compute();
   if(Setpoint_speed == 0 || setpoint_distance==0)
@@ -129,17 +132,11 @@ void callback() {
 }
 
 void updatePulsesEncoder1() {
-  if(setpoint_distance>=0)
     pulses++;
-  else
-    pulses--;
 }
 
 void updatePulsesEncoder2() {
-  if(setpoint_distance>=0)
     pulses++;
-  else
-    pulses--;
 }
 
 static bool receiveGarrinsMsg(GarrinsMsg* msg) {
