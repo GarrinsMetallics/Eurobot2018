@@ -92,6 +92,7 @@ def getState(ser):
 
 
 
+
 def E0():
     motor1=200
     motor2=500
@@ -129,41 +130,41 @@ def main():
         vel1,vel2,vel3=cord
         
         while seguent==False:
-            if (ser0 & ser1 & ser2) is not None:
+            if (ser0 and ser1 and ser2) is not None:
                 if getState(driver) == ROBOT_IDLE:
-                    print ('GARRINATOR V is IDLE.')
+                    print ('GARRINATOR V is IDLE.motor1')
                 driverDistance = setDistance(driver, vel1)
                 
-                while getState(driver) == ROBOT_MOVING:                
-                    print ('GARRINATOR V is moving.')
+                #while getState(driver) == ROBOT_MOVING:                
+                   # print ('GARRINATOR V is moving.')
                     
                 if getState(driver) == ROBOT_IDLE:
-                    print ('GARRINATOR V is IDLE.')
+                    print ('GARRINATOR V is IDLE.motor1')
 
         ##################################MOTOR2########################
             
                 if getState(driver) == ROBOT_IDLE:
-                    print ('GARRINATOR V is IDLE.')
+                    print ('GARRINATOR V is IDLE.motor2')
                 driverDistance = setDistance(driver, vel2)
                 
-                while getState(driver) == ROBOT_MOVING:                
-                    print ('GARRINATOR V is moving.')
+                #while getState(driver) == ROBOT_MOVING:                
+                   # print ('GARRINATOR V is moving.')
                     
                 if getState(driver) == ROBOT_IDLE:
-                    print ('GARRINATOR V is IDLE.')
+                    print ('GARRINATOR V is IDLE. motor2')
         ##################################MOTOR3########################
                     
                 if getState(driver) == ROBOT_IDLE:
-                    print ('GARRINATOR V is IDLE.')
+                    print ('GARRINATOR V is IDLE.motor3')
                 driverDistance = setDistance(driver, vel3)
                 
-                while getState(driver) == ROBOT_MOVING:                
-                    print ('GARRINATOR V is moving.')
+               # while getState(driver) == ROBOT_MOVING:                
+                   # print ('GARRINATOR V is moving.')
                     
                 if getState(driver) == ROBOT_IDLE:
-                    print ('GARRINATOR V is IDLE.')
-            if getState(ser0)== ROBOT_IDLE & getState(ser1) == ROBOT_IDLE & getState(ser2) == ROBOT_IDLE:
-                seguent=True
+                    print ('GARRINATOR V is IDLE.motor3')
+                if getState(ser0)== ROBOT_IDLE and getState(ser1) == ROBOT_IDLE and getState(ser2) == ROBOT_IDLE:
+                    seguent=True
 
 
 
