@@ -91,18 +91,27 @@ def getState(ser):
 
 
 
+
 def E0():
     motor1=200
     motor2=500
+    motor3=0
     return motor1, motor2
+
 def E1():
+    motor1=0
     motor2=-500
     motor3=400
-    return motor2,motor3
+    
+    return motor1,motor2,motor3
+
 def E2():
-    motor3=-400
     motor1=-200
-    return motor11, motor3
+    motor2=0
+    motor3=-400
+    
+    
+    return motor1, motor2, motor3
     
 machine={
     0 : E0,
@@ -113,13 +122,14 @@ machine={
 
 
 def main():
-    ##################################MOTOR1########################3
+    ##################################MOTOR1########################
+    
     for cord in machine:
         seguent=False
-        vel1,vel2=cord
+        vel1,vel2,vel3=cord
         
         while seguent==False:
-            if ser0 is not None:
+            if (ser0 & ser1 & ser2) is not None:
                 if getState(driver) == ROBOT_IDLE:
                     print ('GARRINATOR V is IDLE.')
                 driverDistance = setDistance(driver, vel1)
@@ -130,8 +140,8 @@ def main():
                 if getState(driver) == ROBOT_IDLE:
                     print ('GARRINATOR V is IDLE.')
 
-        ##################################MOTOR2########################3
-            if ser1 is not None:
+        ##################################MOTOR2########################
+            
                 if getState(driver) == ROBOT_IDLE:
                     print ('GARRINATOR V is IDLE.')
                 driverDistance = setDistance(driver, vel2)
@@ -141,8 +151,8 @@ def main():
                     
                 if getState(driver) == ROBOT_IDLE:
                     print ('GARRINATOR V is IDLE.')
-                        ##################################MOTOR3########################3
-            if ser2 is not None:
+        ##################################MOTOR3########################
+                    
                 if getState(driver) == ROBOT_IDLE:
                     print ('GARRINATOR V is IDLE.')
                 driverDistance = setDistance(driver, vel3)
@@ -152,8 +162,9 @@ def main():
                     
                 if getState(driver) == ROBOT_IDLE:
                     print ('GARRINATOR V is IDLE.')
-            if getState(ser0)== ROBOT_IDLE && getState(ser1) == ROBOT_IDLE && getState(ser2) == ROBOT_IDLE:
+            if getState(ser0)== ROBOT_IDLE & getState(ser1) == ROBOT_IDLE & getState(ser2) == ROBOT_IDLE:
                 seguent=True
+
 
 
 if __name__ == "__main__":
