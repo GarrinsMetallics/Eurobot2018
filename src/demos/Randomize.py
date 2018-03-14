@@ -96,7 +96,7 @@ def E0():
     motor1=200
     motor2=500
     motor3=0
-    return motor1, motor2
+    return motor1, motor2, motor3
 
 def E1():
     motor1=0
