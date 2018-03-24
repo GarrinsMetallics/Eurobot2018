@@ -61,9 +61,9 @@ volatile double setpoint_distance = 0;  //mm
 double Setpoint_speed;
 double Input;
 double Output;
-double Kp = 0.4;
+double Kp = 0.33;
 double Ki = 1.1;
-double Kd = 0.002;
+double Kd = 0.0018;
 
 PID myPID(&Input, &Output, &Setpoint_speed, Kp, Ki, Kd, DIRECT);
 
@@ -96,7 +96,7 @@ void loop() {
     replyGarrinsMsg(&req_msg);
   }
 
-  Setpoint_speed = map(current_distance, 0, setpoint_distance, 500, 200);
+  Setpoint_speed = map(current_distance, 0, setpoint_distance, 250, 40);
 
   if (current_distance >= setpoint_distance) {
     Setpoint_speed = 0;
