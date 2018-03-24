@@ -53,7 +53,7 @@ def get_motors():
                 motorA = port
             elif getDriverID(port) == 202:
                 motorB = port
-            elif getDriverID(driver) == 303:
+            elif getDriverID(port) == 303:
                 motorC = port
                 
     return motorA, motorB, motorC
@@ -140,15 +140,17 @@ def get_direction(X,Y):
     else:
         direction = "STOP"
 
+    return direction
+
 def get_D1(coordinate):
     X = coordinate[0]
     Y = coordinate[1]
 
     direction = get_direction(X, Y)
 
-    D1 = X/math.cos(math.radians(30))
+    D1 = int(X/math.cos(math.radians(30)))
 
-    return D1,direction
+    return D1, direction
 
 def get_D2(coordinate):
     X = coordinate[0]
@@ -156,9 +158,9 @@ def get_D2(coordinate):
 
     direction = get_direction(X, Y)
 
-    D2 = Y - X * math.tan(math.radians(30))
+    D2 = int(Y - X * math.tan(math.radians(30)))
 
-    return D2,direction
+    return D2, direction
 
 def get_translation(distance, direction):
     transA = 0
@@ -168,19 +170,19 @@ def get_translation(distance, direction):
     if direction == "+AB":
         transA = -distance
         transB = distance
-    elif direction == "-AB"
+    elif direction == "-AB":
         transA = distance
         transB = -distance
     elif direction == "+BC":
         transB = -distance
         transC = distance
-    elif direction == "-BC"
+    elif direction == "-BC":
         transB = distance
         transC = -distance
     elif direction == "+CA":
         transC = -distance
         transA = distance
-    elif direction == "-CA"
+    elif direction == "-CA":
         transC = distance
         transA = -distance
 
@@ -201,7 +203,11 @@ def get_action(coordinate):
     return action
 
 def robot_is_moving(A,B,C):
-    return getState(A) == ROBOT_MOVING and getState(B) == ROBOT_MOVING and getState(C) == ROBOT_MOVING
+    movA = getState(A) == ROBOT_MOVING
+    movB = getState(B) == ROBOT_MOVING
+    movC = getState(C) == ROBOT_MOVING
+
+    return movA and movB and movC
 
 def main():
     # State 0: activate motors
@@ -217,7 +223,7 @@ def main():
         movD1, dirD1 = get_D1(c)
         movD2, dirD2 = get_D2(c)
 
-        transA, transB, transC = get_translation(movD1,dirD1)
+        transA, transB, transC = get_translation(movD1, dirD1)
         setDistance(motorA, transA)
         setDistance(motorB, transB)
         setDistance(motorC, transC)
@@ -226,7 +232,7 @@ def main():
         while robot_is_moving(motorA, motorB, motorC):
             time.sleep(0.5)
 
-        transA, transB, transC = get_translation(movD2,dirD2)
+        transA, transB, transC = get_translation(movD2, dirD2)
         setDistance(motorA, transA)
         setDistance(motorB, transB)
         setDistance(motorC, transC)
