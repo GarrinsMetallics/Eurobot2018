@@ -3,7 +3,7 @@
 #include <PID_v1.h>
 #include <avr/wdt.h>
 
-#define DEV_ID (101)
+#define DEV_ID (303)
 #define FW_VER (0001)
 
 #define ENCODER_PIN_1 3
@@ -95,27 +95,20 @@ void loop() {
   if (receiveGarrinsMsg(&req_msg)) {
     replyGarrinsMsg(&req_msg);
   }
-  if(setpoint_distance>=0){
-    digitalWrite(DIRECTION_PIN, HIGH);
-  }
-  else{
-    digitalWrite(DIRECTION_PIN, LOW);
-    setpoint_distance = abs(setpoint_distance);
-  }
-  if(current_distance+150 < setpoint_distance)
-    Setpoint_speed = 250;
-  else if(current_distance+150 > setpoint_distance && current_distance < setpoint_distance)
-    Setpoint_speed = 90;
-  else {
+
+  Setpoint_speed = map(current_distance, 0, setpoint_distance, 500, 200);
+
+  if (current_distance >= setpoint_distance) {
     Setpoint_speed = 0;
     pulses = 0;
     setpoint_distance = 0;
     robot_state = ROBOT_IDLE;
   }
+  
   Input = motor_speed;
   myPID.Compute();
-  if(Setpoint_speed == 0 || setpoint_distance==0)
-    Output=0;
+  if (Setpoint_speed == 0 || setpoint_distance == 0)
+    Output = 0;
   analogWrite(OUTPUT_PIN, Output);
 
   wdt_reset();
@@ -126,17 +119,17 @@ void loop() {
 void callback() {
   delta_pulses = pulses - last_pulses;
   delta_distance = (delta_pulses * ANGLE * 2 * NUMPI * RADIUS) / 360;
-  motor_speed =  (delta_distance * 1000000)/ DELTA_TIME; //mm/s
+  motor_speed =  (delta_distance * 1000000) / DELTA_TIME; //mm/s
   last_pulses = pulses;
-  current_distance = (2*NUMPI*RADIUS*pulses)/PPR;
+  current_distance = (2 * NUMPI * RADIUS * pulses) / PPR;
 }
 
 void updatePulsesEncoder1() {
-    pulses++;
+  pulses++;
 }
 
 void updatePulsesEncoder2() {
-    pulses++;
+  pulses++;
 }
 
 static bool receiveGarrinsMsg(GarrinsMsg* msg) {
@@ -190,6 +183,13 @@ static void replyGarrinsMsg(GarrinsMsg* msg) {
       robot_state = ROBOT_MOVING;
       setpoint_distance = (double)msg->value;
       resp_msg.value = (int32_t)setpoint_distance;
+      if (setpoint_distance >= 0) {
+        digitalWrite(DIRECTION_PIN, HIGH);
+      }
+      else {
+        digitalWrite(DIRECTION_PIN, LOW);
+        setpoint_distance = abs(setpoint_distance);
+      }
       break;
     case GET_STATE:
       resp_msg.value = robot_state;
