@@ -126,17 +126,17 @@ def read_coordinates():
 
 def get_direction(X,Y):
     if X == 0 and Y > 0:
-        direction = "+CA"
+        direction = "+AB"
     elif X == 0 and Y < 0:
-        direction = "-CA"
-    elif X > 0 and Y > 0:
         direction = "-AB"
-    elif X > 0 and Y < 0:
-        direction = "+BC"
-    elif X < 0 and Y > 0:
+    elif X > 0 and Y > 0:
         direction = "-BC"
     elif X < 0 and Y < 0:
-        direction = "+AB"
+        direction = "+BC"
+    elif X > 0 and Y < 0:
+        direction = "+CA"
+    elif X < 0 and Y > 0:
+        direction = "-CA"
     else:
         direction = "STOP"
 
@@ -167,24 +167,26 @@ def get_translation(distance, direction):
     transB = 0
     transC = 0
 
-    if direction == "+AB":
+    if direction == "+BA":
         transA = -distance
-        transB = distance
-    elif direction == "-AB":
+        transB = -distance
+    elif direction == "-BA":
         transA = distance
-        transB = -distance
+        transB = distance
     elif direction == "+BC":
-        transB = -distance
+        transB = distance
         transC = distance
     elif direction == "-BC":
         transB = distance
-        transC = -distance
+        transC = distance
     elif direction == "+CA":
         transC = -distance
-        transA = distance
+        transA = -distance
     elif direction == "-CA":
         transC = distance
-        transA = -distance
+        transA = distance
+
+    print('Moving motors: A={0}, B={1}, C={2}'.format(transA, transB, transC))
 
     return transA, transB, transC
     
@@ -193,7 +195,7 @@ def get_rotation(coordinate):
 
     robot_perimeter = 2*math.pi*170
 
-    rotation_distance = robot_perimeter*angle/359
+    rotation_distance = int(robot_perimeter*angle/359)
 
     return rotation_distance
 
@@ -207,7 +209,7 @@ def robot_is_moving(A,B,C):
     movB = getState(B) == ROBOT_MOVING
     movC = getState(C) == ROBOT_MOVING
 
-    return movA and movB and movC
+    return movA or movB or movC
 
 def main():
     # State 0: activate motors
