@@ -3,7 +3,7 @@
 #include <PID_v1.h>
 #include <avr/wdt.h>
 
-#define DEV_ID (303)
+#define DEV_ID (202) //A->101  B->202  C->303
 #define FW_VER (0001)
 
 #define ENCODER_PIN_1 3
