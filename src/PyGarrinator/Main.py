@@ -1,5 +1,6 @@
 import time
 import serial
+import math
 
 DRIVER_ID = 1
 FW_VERSION = 2
@@ -18,6 +19,11 @@ RESPONSE = 11
 ROBOT_IDLE = 10
 ROBOT_MOVING = 11
 ROBOT_BLOCKED = 12
+
+OFF = 0
+ON = 1
+
+LAUNCH_BALLS = 10
 
 def get_motors():
     try:
@@ -94,7 +100,6 @@ def getPulses(ser):
     writeSerialData(ser, GET_STEPS, REQUEST, 0)
     return readSerialData(ser)
     
-    
 def getDistance(ser):
     writeSerialData(ser, GET_POSITION, REQUEST, 0)
     return readSerialData(ser)
@@ -107,6 +112,10 @@ def getState(ser):
     writeSerialData(ser, GET_STATE, REQUEST, 0)
     return readSerialData(ser)
 
+def control_launcher(option):
+    #set launcher gpio on/off
+    time.sleep(0.1)
+
 def read_coordinates():
     coordinates = []
     with open("coordinates.txt") as fp:
@@ -115,39 +124,134 @@ def read_coordinates():
 
     return coordinates
 
-def get_translations(coordinate):
+def get_direction(X,Y):
+    if X == 0 and Y > 0:
+        direction = "+CA"
+    elif X == 0 and Y < 0:
+        direction = "-CA"
+    elif X > 0 and Y > 0:
+        direction = "-AB"
+    elif X > 0 and Y < 0:
+        direction = "+BC"
+    elif X < 0 and Y > 0:
+        direction = "-BC"
+    elif X < 0 and Y < 0:
+        direction = "+AB"
+    else:
+        direction = "STOP"
+
+def get_D1(coordinate):
     X = coordinate[0]
     Y = coordinate[1]
 
-    return 0,0,0
-    
-def get_rotations(coordinate):
-    angle = coordinate[2]
-    angle = angle % 360
+    direction = get_direction(X, Y)
 
-    return 0,0,0
+    D1 = X/math.cos(math.radians(30))
+
+    return D1,direction
+
+def get_D2(coordinate):
+    X = coordinate[0]
+    Y = coordinate[1]
+
+    direction = get_direction(X, Y)
+
+    D2 = Y - X * math.tan(math.radians(30))
+
+    return D2,direction
+
+def get_translation(distance, direction):
+    transA = 0
+    transB = 0
+    transC = 0
+
+    if direction == "+AB":
+        transA = -distance
+        transB = distance
+    elif direction == "-AB"
+        transA = distance
+        transB = -distance
+    elif direction == "+BC":
+        transB = -distance
+        transC = distance
+    elif direction == "-BC"
+        transB = distance
+        transC = -distance
+    elif direction == "+CA":
+        transC = -distance
+        transA = distance
+    elif direction == "-CA"
+        transC = distance
+        transA = -distance
+
+    return transA, transB, transC
+    
+def get_rotation(coordinate):
+    angle = coordinate[2] % 360
+
+    robot_perimeter = 2*math.pi*170
+
+    rotation_distance = robot_perimeter*angle/359
+
+    return rotation_distance
+
+def get_action(coordinate):
+    action = coordinate[3]
+
+    return action
+
+def robot_is_moving(A,B,C):
+    return getState(A) == ROBOT_MOVING and getState(B) == ROBOT_MOVING and getState(C) == ROBOT_MOVING
 
 def main():
+    # State 0: activate motors
     motorA, motorB, motorC = get_motors()
+
+    # State 1: read coordinates list
     coordinates = read_coordinates()
+
+    # For each coordinate
     for c in coordinates:
-        transA,transB,transC = get_translations(c)
-        setDistance(motorA,transA)
-        setDistance(motorB,transB)
-        setDistance(motorC,transC)
-        while getState(motorA) == MOVING and getState(motorB) == MOVING and getState(motorC) == MOVING:
+
+        # Move to new coordinate
+        movD1, dirD1 = get_D1(c)
+        movD2, dirD2 = get_D2(c)
+
+        transA, transB, transC = get_translation(movD1,dirD1)
+        setDistance(motorA, transA)
+        setDistance(motorB, transB)
+        setDistance(motorC, transC)
+
+        # Wait for the robot to stop
+        while robot_is_moving(motorA, motorB, motorC):
             time.sleep(0.5)
 
-        rotA,rotB,rotC = get_rotations(c)
+        transA, transB, transC = get_translation(movD2,dirD2)
+        setDistance(motorA, transA)
+        setDistance(motorB, transB)
+        setDistance(motorC, transC)
 
-        setDistance(motorA,rotA)
-        setDistance(motorB,rotB)
-        setDistance(motorC,rotC)
-
-        while getState(motorA) == MOVING and getState(motorB) == MOVING and getState(motorC) == MOVING:
+        # Wait for the robot to stop
+        while robot_is_moving(motorA, motorB, motorC):
             time.sleep(0.5)
 
-        
+        # Rotate the desired angle
+        rotation = get_rotation(c)
+        setDistance(motorA, rotation)
+        setDistance(motorB, rotation)
+        setDistance(motorC, rotation)
+
+        # Wait for the robot to stop
+        while robot_is_moving(motorA, motorB, motorC):
+            time.sleep(0.5)
+
+        action = get_action(c)
+        if action == LAUNCH_BALLS:
+            control_launcher(1)
+            time.sleep(10)
+            control_launcher(0)
+
+
 
 if __name__ == "__main__":
     main()
