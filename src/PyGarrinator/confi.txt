@@ -1,0 +1,12 @@
+           0rad
+        B-------- A
+         \      /
+pi/2rad   \    /  3*pi/2rad
+           \  /
+            C
+    
+         pi rad
+
+A-GPIO16
+B-GPIO20
+C-GPIO21

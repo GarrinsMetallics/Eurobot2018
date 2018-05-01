@@ -1,6 +1,7 @@
 import time
 import serial
 import math
+import RPi.GPIO as GPIO
 
 DRIVER_ID = 1
 FW_VERSION = 2
@@ -27,17 +28,17 @@ LAUNCH_BALLS = 10
 
 def get_motors():
     try:
-        ser0 = serial.Serial('/dev/ttyUSB0', 115200, timeout=1.0)
+        ser0 = serial.Serial('/dev/ttyUSB0', 250000, timeout=1.0)
     except:
         ser0 = None
 
     try:
-        ser1 = serial.Serial('/dev/ttyUSB1', 115200, timeout=1.0)
+        ser1 = serial.Serial('/dev/ttyUSB1', 250000, timeout=1.0)
     except:
         ser1 = None
         
     try:
-        ser2 = serial.Serial('/dev/ttyUSB2', 115200, timeout=1.0)
+        ser2 = serial.Serial('/dev/ttyUSB2', 250000, timeout=1.0)
     except:
         ser2 = None
 
@@ -92,8 +93,8 @@ def getUptime(ser):
     writeSerialData(ser, RUNNING_TIME, REQUEST, 0)
     return readSerialData(ser)
     
-def setSpeedSetpoint(ser):
-    writeSerialData(ser, SET_SPEED, REQUEST, 200)
+def setSpeedSetpoint(ser, set_value):
+    writeSerialData(ser, SET_SPEED, REQUEST, set_value)
     return readSerialData(ser)
 
 def getPulses(ser):
@@ -121,88 +122,7 @@ def read_coordinates():
     with open("coordinates.txt") as fp:
         for line in fp:
             coordinates.append([int(x) for x in line.split()])
-
-    return coordinates
-
-def get_direction(X,Y):
-    if X == 0 and Y > 0:
-        direction = "+AB"
-    elif X == 0 and Y < 0:
-        direction = "-AB"
-    elif X > 0 and Y > 0:
-        direction = "-BC"
-    elif X < 0 and Y < 0:
-        direction = "+BC"
-    elif X > 0 and Y < 0:
-        direction = "+CA"
-    elif X < 0 and Y > 0:
-        direction = "-CA"
-    else:
-        direction = "STOP"
-
-    return direction
-
-def get_D1(coordinate):
-    X = coordinate[0]
-    Y = coordinate[1]
-
-    direction = get_direction(X, Y)
-
-    D1 = int(X/math.cos(math.radians(30)))
-
-    return D1, direction
-
-def get_D2(coordinate):
-    X = coordinate[0]
-    Y = coordinate[1]
-
-    direction = get_direction(X, Y)
-
-    D2 = int(Y - X * math.tan(math.radians(30)))
-
-    return D2, direction
-
-def get_translation(distance, direction):
-    transA = 0
-    transB = 0
-    transC = 0
-
-    if direction == "+BA":
-        transA = -distance
-        transB = -distance
-    elif direction == "-BA":
-        transA = distance
-        transB = distance
-    elif direction == "+BC":
-        transB = distance
-        transC = distance
-    elif direction == "-BC":
-        transB = distance
-        transC = distance
-    elif direction == "+CA":
-        transC = -distance
-        transA = -distance
-    elif direction == "-CA":
-        transC = distance
-        transA = distance
-
-    print('Moving motors: A={0}, B={1}, C={2}'.format(transA, transB, transC))
-
-    return transA, transB, transC
-    
-def get_rotation(coordinate):
-    angle = coordinate[2] % 360
-
-    robot_perimeter = 2*math.pi*170
-
-    rotation_distance = int(robot_perimeter*angle/359)
-
-    return rotation_distance
-
-def get_action(coordinate):
-    action = coordinate[3]
-
-    return action
+    return coordinates    
 
 def robot_is_moving(A,B,C):
     movA = getState(A) == ROBOT_MOVING
@@ -211,55 +131,124 @@ def robot_is_moving(A,B,C):
 
     return movA or movB or movC
 
+def get_mov(coordinate):
+    X = coordinate[0]
+    Y = coordinate[1]
+
+    distance = math.sqrt(X*X+Y*Y)
+    if Y == 0:
+        if X > 0:
+            angle = 0 #up
+        else:
+            angle = math.pi #down
+    elif X == 0:
+        if Y > 0:
+            angle = 3*math.pi/2 #right
+        else:
+            angle = math.pi/2 #left
+    else:
+        angle = math.atan(Y/X)
+    print('distance',distance)
+    print('angle',angle)
+
+    speedC = int(round(distance*math.sin((math.pi/2)-angle)))
+    speedA = int(round(distance*math.sin((7*math.pi/6)-angle)))
+    speedB = int(round(distance*math.sin((11*math.pi/6)-angle)))
+    speedB = speedB*(-1)
+
+    if X<0 and Y<=0:
+        speedB = speedB*(-1)
+        speedA = speedA*(-1)
+        speedC = speedC*(-1)
+    
+    if X == 0 and Y!=0:
+        speedB = speedB*(-1)
+        speedA = speedA*(-1)
+
+    if Y == 0 and X!=0:
+        speedB = speedB*(-1)
+        speedA = speedA*(-1)
+        speedC = speedC*(-1)
+
+    print('SpeedA: ',speedA)
+    print('SpeedB: ',speedB)
+    print('SpeedC: ',speedC)
+
+    return speedA, speedB, speedC
+
+def get_rotation(coordinate):
+    angle = coordinate[2] 
+
+    robot_perimeter = 2*math.pi*155
+
+    rotation_distance = int(-robot_perimeter*angle/360)
+
+    return rotation_distance
+
+def get_action(coordinate):
+    action = coordinate[3]
+
+    return action
+
+def trigger():
+    GPIO.output(16,GPIO.HIGH)
+    GPIO.output(20,GPIO.HIGH)
+    GPIO.output(21,GPIO.HIGH)
+    time.sleep(0.5)
+    GPIO.output(16,GPIO.LOW)
+    GPIO.output(20,GPIO.LOW)
+    GPIO.output(21,GPIO.LOW)
+
 def main():
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(16, GPIO.OUT, initial=GPIO.LOW)
+    GPIO.setup(20, GPIO.OUT, initial=GPIO.LOW)
+    GPIO.setup(21, GPIO.OUT, initial=GPIO.LOW)
     # State 0: activate motors
     motorA, motorB, motorC = get_motors()
 
     # State 1: read coordinates list
     coordinates = read_coordinates()
-
+    
     # For each coordinate
     for c in coordinates:
 
-        # Move to new coordinate
-        movD1, dirD1 = get_D1(c)
-        movD2, dirD2 = get_D2(c)
+        print(c)
+        speedA, speedB, speedC = get_mov(c)
+        
+        setDistance(motorA, speedA)
+        setDistance(motorB, speedB)
+        setDistance(motorC, speedC)
+        setSpeedSetpoint(motorA,speedA)
+        setSpeedSetpoint(motorB,speedB)
+        setSpeedSetpoint(motorC,speedC)
+        trigger()
 
-        transA, transB, transC = get_translation(movD1, dirD1)
-        setDistance(motorA, transA)
-        setDistance(motorB, transB)
-        setDistance(motorC, transC)
-
-        # Wait for the robot to stop
         while robot_is_moving(motorA, motorB, motorC):
-            time.sleep(0.5)
+            print('Is moving')
+            time.sleep(1) 
 
-        transA, transB, transC = get_translation(movD2, dirD2)
-        setDistance(motorA, transA)
-        setDistance(motorB, transB)
-        setDistance(motorC, transC)
-
-        # Wait for the robot to stop
-        while robot_is_moving(motorA, motorB, motorC):
-            time.sleep(0.5)
-
-        # Rotate the desired angle
         rotation = get_rotation(c)
         setDistance(motorA, rotation)
-        setDistance(motorB, rotation)
+        setDistance(motorB, -rotation)
         setDistance(motorC, rotation)
+        setSpeedSetpoint(motorA,300)
+        setSpeedSetpoint(motorB,300)
+        setSpeedSetpoint(motorC,-300)
+        trigger()
 
         # Wait for the robot to stop
         while robot_is_moving(motorA, motorB, motorC):
-            time.sleep(0.5)
+            print('Is rotating')
+            time.sleep(1)
 
         action = get_action(c)
         if action == LAUNCH_BALLS:
             control_launcher(1)
             time.sleep(10)
             control_launcher(0)
-
-
+            trigger()
+            
 
 if __name__ == "__main__":
     main()
