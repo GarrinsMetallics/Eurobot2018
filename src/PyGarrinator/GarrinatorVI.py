@@ -42,6 +42,8 @@ class OpenCVLoop(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
 
+        self.quitFlag = False
+
         # define the lower and upper boundaries of the "green"
         # ball in the HSV color space, then initialize the
         # list of tracked points
@@ -60,7 +62,7 @@ class OpenCVLoop(threading.Thread):
         framePtr=0
         framesWithEnemy=[0]*MAX_FRAMES_AVG
 
-        while True:
+        while self.quitFlag == False:
             # grab the current frame
             (grabbed, frame)=self.camera.read()
 
@@ -112,6 +114,9 @@ class OpenCVLoop(threading.Thread):
             framePtr=framePtr + 1
             if framePtr==MAX_FRAMES_AVG-1:
                 framePtr=0
+        
+            if quitFlag:
+                break;
 
 def get_motors():
     try:
@@ -360,40 +365,9 @@ def main():
             time.sleep(10)
             control_launcher(0)
             triggerHigh()
-
-        '''
-        triggerHi()
-
-        while robot_is_moving(motorA, motorB, motorC):
-            if stopFlag == True:
-                DistanceStopA = getDistance(motorA)
-                DistanceStopB = getDistance(motorB)
-                DistanceStopC = getDistance(motorC)
-                print('Distance A: ',DistanceStopA)
-                print('Distance B: ',DistanceStopB)
-                print('Distance C: ',DistanceStopC)
-                stop(motorA)
-                stop(motorB)
-                stop(motorC)
-                StopSent = True
-            else:
-                if StopSent == True:
-                    #restart(motorB)
-                    #restart(motorB)
-                    #restart(motorB)
-                    setDistance(motorA, DistanceStopA)
-                    setDistance(motorB, DistanceStopB)
-                    setDistance(motorC, DistanceStopC)
-                    setSpeedSetpoint(motorA,speedA)
-                    setSpeedSetpoint(motorB,speedB)
-                    setSpeedSetpoint(motorC,speedC)
-                    triggerHigh
-()
-                    StopSent = False
-            
-            #print('Is moving')
-            time.sleep(0.2) 
-        '''
+        print ('END OF COORDINATES')
+    print('FOOBAR')
+    enemyDetectionLoop.quitFlag = True
             
 if __name__=="__main__":
     main()
