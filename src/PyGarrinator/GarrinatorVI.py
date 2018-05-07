@@ -21,6 +21,8 @@ SET_STEPS=7
 GET_POSITION=8
 SET_POSITION=9
 GET_STATE=10
+STOP=11
+RESTART=12
 
 REQUEST=10
 RESPONSE=11
@@ -52,7 +54,9 @@ class OpenCVLoop(threading.Thread):
         self.camera=cv2.VideoCapture(0)
         
     def run(self):
-        MAX_FRAMES_AVG=10
+        global stopFlag
+
+        MAX_FRAMES_AVG=5
         framePtr=0
         framesWithEnemy=[0]*MAX_FRAMES_AVG
 
@@ -95,13 +99,15 @@ class OpenCVLoop(threading.Thread):
                 framesWithEnemy[framePtr]=0
 
             enemyTotal=0
-            print(framesWithEnemy)
+            #print(framesWithEnemy)
             for j in range(0,MAX_FRAMES_AVG):
                 enemyTotal=enemyTotal + framesWithEnemy[j]
             if enemyTotal > MAX_FRAMES_AVG/2:
-                print("STOP!!")
+                #print("STOP!!")
+                stopFlag = True
             else:
-                print("OK")
+                #print("OK")
+                stopFlag = False
 
             framePtr=framePtr + 1
             if framePtr==MAX_FRAMES_AVG-1:
@@ -109,17 +115,17 @@ class OpenCVLoop(threading.Thread):
 
 def get_motors():
     try:
-        ser0=serial.Serial('/dev/ttyUSB0', 250000, timeout=1.0)
+        ser0=serial.Serial('/dev/ttyUSB0', 115200, timeout=1.0)
     except:
         ser0=None
 
     try:
-        ser1=serial.Serial('/dev/ttyUSB1', 250000, timeout=1.0)
+        ser1=serial.Serial('/dev/ttyUSB1', 115200, timeout=1.0)
     except:
         ser1=None
         
     try:
-        ser2=serial.Serial('/dev/ttyUSB2', 250000, timeout=1.0)
+        ser2=serial.Serial('/dev/ttyUSB2', 115200, timeout=1.0)
     except:
         ser2=None
 
@@ -194,6 +200,14 @@ def getState(ser):
     writeSerialData(ser, GET_STATE, REQUEST, 0)
     return readSerialData(ser)
 
+def stop(ser):
+    writeSerialData(ser, STOP, REQUEST, 0)
+    return readSerialData(ser)
+
+def restart(ser):
+    writeSerialData(ser, RESTART, REQUEST, 0)
+    return readSerialData(ser)
+
 def control_launcher(option):
     #set launcher gpio on/off
     time.sleep(0.1)
@@ -209,7 +223,7 @@ def robot_is_moving(A,B,C):
     movA=getState(A)==ROBOT_MOVING
     movB=getState(B)==ROBOT_MOVING
     movC=getState(C)==ROBOT_MOVING
-
+    time.sleep(0.5)
     return movA or movB or movC
 
 def get_mov(coordinate):
@@ -263,7 +277,7 @@ def get_rotation(coordinate):
     robot_perimeter=2*math.pi*155
 
     rotation_distance=int(-robot_perimeter*angle/360)
-
+    print('ROTATION: ',rotation_distance)
     return rotation_distance
 
 def get_action(coordinate):
@@ -271,14 +285,16 @@ def get_action(coordinate):
 
     return action
 
-def trigger():
+def triggerHigh():
     GPIO.output(16,GPIO.HIGH)
     GPIO.output(20,GPIO.HIGH)
     GPIO.output(21,GPIO.HIGH)
     time.sleep(0.5)
+def triggerLow():
     GPIO.output(16,GPIO.LOW)
     GPIO.output(20,GPIO.LOW)
     GPIO.output(21,GPIO.LOW)
+    time.sleep(0.5)
 
 def main():
     enemyDetectionLoop=OpenCVLoop()
@@ -296,22 +312,28 @@ def main():
     
     # For each coordinate
     for c in coordinates:
-
-        print(c)
+        print('COORDINATES: ',c)
         speedA, speedB, speedC=get_mov(c)
-        
-        setDistance(motorA, speedA)
-        setDistance(motorB, speedB)
-        setDistance(motorC, speedC)
+
+        setDistance(motorA, speedA*5)
+        setDistance(motorB, speedB*5)
+        setDistance(motorC, speedC*5)
         setSpeedSetpoint(motorA,speedA)
         setSpeedSetpoint(motorB,speedB)
         setSpeedSetpoint(motorC,speedC)
-        trigger()
+        triggerHigh()
 
+        # Wait for the robot to stop
         while robot_is_moving(motorA, motorB, motorC):
-            print('Is moving')
-            time.sleep(1) 
-
+            if stopFlag == True:
+                print('ROBOT IS BLOCKED')
+                triggerLow()
+            else:
+                print('ROBOT IS MOVING')
+                triggerHigh()
+            time.sleep(1)
+        triggerLow()
+        
         rotation=get_rotation(c)
         setDistance(motorA, rotation)
         setDistance(motorB, -rotation)
@@ -319,19 +341,59 @@ def main():
         setSpeedSetpoint(motorA,300)
         setSpeedSetpoint(motorB,300)
         setSpeedSetpoint(motorC,-300)
-        trigger()
+        triggerHigh()
 
         # Wait for the robot to stop
         while robot_is_moving(motorA, motorB, motorC):
-            print('Is rotating')
+            if stopFlag == True:
+                print('ROBOT IS BLOCKED')
+                triggerLow()
+            else:
+                print('ROBOT IS MOVING')
+                triggerHigh()
             time.sleep(1)
+        triggerLow()
 
         action=get_action(c)
         if action==LAUNCH_BALLS:
             control_launcher(1)
             time.sleep(10)
             control_launcher(0)
-            trigger()
+            triggerHigh()
+
+        '''
+        triggerHi()
+
+        while robot_is_moving(motorA, motorB, motorC):
+            if stopFlag == True:
+                DistanceStopA = getDistance(motorA)
+                DistanceStopB = getDistance(motorB)
+                DistanceStopC = getDistance(motorC)
+                print('Distance A: ',DistanceStopA)
+                print('Distance B: ',DistanceStopB)
+                print('Distance C: ',DistanceStopC)
+                stop(motorA)
+                stop(motorB)
+                stop(motorC)
+                StopSent = True
+            else:
+                if StopSent == True:
+                    #restart(motorB)
+                    #restart(motorB)
+                    #restart(motorB)
+                    setDistance(motorA, DistanceStopA)
+                    setDistance(motorB, DistanceStopB)
+                    setDistance(motorC, DistanceStopC)
+                    setSpeedSetpoint(motorA,speedA)
+                    setSpeedSetpoint(motorB,speedB)
+                    setSpeedSetpoint(motorC,speedC)
+                    triggerHigh
+()
+                    StopSent = False
+            
+            #print('Is moving')
+            time.sleep(0.2) 
+        '''
             
 if __name__=="__main__":
     main()

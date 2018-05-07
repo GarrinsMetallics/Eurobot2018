@@ -35,8 +35,6 @@ enum MSG_CMD {
   GET_POSITION,
   SET_POSITION,
   GET_STATE
-  STOP
-  RESTART
 };
 
 enum MSG_TYPE {
@@ -64,19 +62,16 @@ volatile double setpoint_distance = 0;  //mm
 double Setpoint_speed;
 double Input;
 double Output;
-double Kp = 0.2;
-double Ki = 1;
+double Kp = 0.17;//0.2;
+double Ki = 1.3;//1;
 double Kd = 0.0008;
 
 double Setpoint_speed_orig;
 
-int oponent=0;
-
-
 PID myPID(&Input, &Output, &Setpoint_speed, Kp, Ki, Kd, DIRECT);
 
 void setup() {
-  Serial.begin(250000);
+  Serial.begin(115200);
 
   pinMode(ENCODER_PIN_1, INPUT);
   pinMode(ENCODER_PIN_2, INPUT);
@@ -90,6 +85,8 @@ void setup() {
 
   pinMode(TRIGGER_PIN, INPUT);
 
+  pinMode(LED_BUILTIN, OUTPUT);
+
   Timer1.initialize(DELTA_TIME);         // initialize timer1, and set a 0.03 second period
   Timer1.attachInterrupt(callback);  // attaches callback() as a timer overflow interrupt
 
@@ -100,42 +97,43 @@ void setup() {
 
   sei();
   wdt_enable(WDTO_500MS);
+
+  digitalWrite(LED_BUILTIN, LOW);
 }
 
 void loop() {
-  if (digitalRead(TRIGGER_PIN) == HIGH){
+  if (digitalRead(TRIGGER_PIN) == HIGH) {
     myPID.SetMode(AUTOMATIC);
+    digitalWrite(LED_BUILTIN, HIGH);
   }
+
   if (receiveGarrinsMsg(&req_msg)) {
     replyGarrinsMsg(&req_msg);
   }
 
-  Setpoint_speed = map(current_distance, 0, setpoint_distance, Setpoint_speed_orig, Setpoint_speed_orig/4);
+  Setpoint_speed = map(current_distance, 0, setpoint_distance, Setpoint_speed_orig, Setpoint_speed_orig / 4);
 
   if (current_distance >= setpoint_distance) {
     Setpoint_speed = 0;
     pulses = 0;
     last_pulses = 0;
-    delta_distance = 0; 
+    delta_distance = 0;
     motor_speed = 0;
     setpoint_distance = 0;
     current_distance = 0;
     robot_state = ROBOT_IDLE;
     myPID.SetMode(MANUAL);
-  }
-  
-  Input = motor_speed;
-  myPID.Compute();
-  if (Setpoint_speed == 0 || setpoint_distance == 0)
-    Output = 0;
-    
-  if(oponent != STOP){
-    analogWrite(OUTPUT_PIN, Output);
-  }
-  else{
-    analogWrite(OUTPUT_PIN, 0);
+    digitalWrite(LED_BUILTIN, LOW);
   }
 
+  Input = motor_speed;
+  myPID.Compute();
+  if (Setpoint_speed == 0 || setpoint_distance == 0 || digitalRead(TRIGGER_PIN) == LOW) {
+    Output = 0;
+  }
+
+  analogWrite(OUTPUT_PIN, Output);
+  
   wdt_reset();
 
   delay(50);
@@ -218,14 +216,6 @@ static void replyGarrinsMsg(GarrinsMsg* msg) {
       }
       break;
     case GET_STATE:
-      resp_msg.value = robot_state;
-      break;
-    case STOP:
-      oponent = STOP;
-      resp_msg.value = robot_state;
-      break;
-    case RESTART:
-      oponent = RESTART;
       resp_msg.value = robot_state;
       break;
   }
