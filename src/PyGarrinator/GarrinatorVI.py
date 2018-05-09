@@ -49,6 +49,7 @@ TRIGER = 5
 VARIADOR = 10
 BRUSH = 27
 LATCH = 22
+SELECTOR = 18
 DIR = 9   # Direction GPIO Pin
 STEP = 11  # Step GPIO Pin
 CW = 1     # Clockwise Rotation
@@ -56,6 +57,8 @@ CCW = 0    # Counterclockwise Rotation
 SPR = (360/1.8)*8   # Steps per Revolution (360 / 7.5)
 cam_position = 0
 delay = .0005
+
+MAX_SPEED =350
 
 class OpenCVLoop(threading.Thread):
     def __init__(self):
@@ -66,8 +69,8 @@ class OpenCVLoop(threading.Thread):
         # define the lower and upper boundaries of the "green"
         # ball in the HSV color space, then initialize the
         # list of tracked points
-        self.Lower=(0, 0, 0)
-        self.Upper=(232, 230, 230)
+        self.greenLower=(29, 86, 6)
+        self.greenUpper=(64, 255, 255)
         self.pts=deque(maxlen=64)
 
         # if a video path was not supplied, grab the reference
@@ -88,11 +91,11 @@ class OpenCVLoop(threading.Thread):
             # resize the frame, blur it, and convert it to the HSV
             # color space
             frame=imutils.resize(frame, width=640)
-            blurred = cv2.GaussianBlur(frame, (11, 11), 0)
-            mask = cv2.inRange(blurred, self.Lower, self.Upper)
+            hsv=cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            mask = cv2.inRange(hsv, self.greenLower, self.greenUpper)
             mask = cv2.erode(mask, None, iterations=2)
             mask = cv2.dilate(mask, None, iterations=2)
-            mask = 255-mask
+            
 
             # find contours in the mask and initialize the current
             # (x, y) center of the ball
@@ -106,10 +109,8 @@ class OpenCVLoop(threading.Thread):
                 # it to compute the minimum enclosing circle and
                 # centroid
                 c=max(cnts, key=cv2.contourArea)
-                epsilon = 0.1*cv2.arcLength(c,True)
-                approx = cv2.approxPolyDP(c,epsilon,True)
-                ((x, y), radius) = cv2.minEnclosingCircle(approx)
-                if radius>80:
+                ((x, y), radius) = cv2.minEnclosingCircle(c)
+                if radius>40:
                     framesWithEnemy[framePtr]=1
                 else:
                     framesWithEnemy[framePtr]=0
@@ -136,17 +137,17 @@ class OpenCVLoop(threading.Thread):
 
 def get_motors():
     try:
-        ser0=serial.Serial('/dev/ttyUSB0', 115200, timeout=0.5)
+        ser0=serial.Serial('/dev/ttyUSB0', 115200, timeout=1.0)
     except:
         ser0=None
 
     try:
-        ser1=serial.Serial('/dev/ttyUSB1', 115200, timeout=0.5)
+        ser1=serial.Serial('/dev/ttyUSB1', 115200, timeout=1.0)
     except:
         ser1=None
         
     try:
-        ser2=serial.Serial('/dev/ttyUSB2', 115200, timeout=0.5)
+        ser2=serial.Serial('/dev/ttyUSB2', 115200, timeout=1.0)
     except:
         ser2=None
 
@@ -231,10 +232,18 @@ def restart(ser):
 
 def read_coordinates():
     coordinates=[]
-    with open("coordinates.txt") as fp:
-        for line in fp:
-            coordinates.append([int(x) for x in line.split()])
-    return coordinates    
+    if GPIO.input(SELECTOR)==1:
+        print('COLOR: GREEN')
+        with open("coordinatesG.txt") as fp:
+            for line in fp:
+                coordinates.append([int(x) for x in line.split()])
+        return coordinates    
+    if GPIO.input(SELECTOR)==0:
+        print('COLOR: ORANGE')
+        with open("coordinatesO.txt") as fp:
+            for line in fp:
+                coordinates.append([int(x) for x in line.split()])
+        return coordinates    
 
 def robot_is_moving(A,B,C):
     movA=getState(A)==ROBOT_MOVING
@@ -244,19 +253,23 @@ def robot_is_moving(A,B,C):
     return movA or movB or movC
 
 def movecamera(angle):
-    step_count = int(SPR)
-    step_count = (step_count*angle)/360
+    global cam_position
+    step_count = SPR
     if cam_position>angle:
+        step_count = int((step_count*(cam_position-angle))/360)
         GPIO.output(DIR, CW)
     if cam_position<angle:
+        step_count = int((step_count*(angle-cam_position))/360)
         GPIO.output(DIR, CCW)
+    if angle == 360:
+        GPIO.output(DIR, CW)
     if cam_position==angle:
-        break
+        return
     for x in range(step_count):
         GPIO.output(STEP, GPIO.HIGH)
-        sleep(delay)
+        time.sleep(delay)
         GPIO.output(STEP, GPIO.LOW)
-        sleep(delay)
+        time.sleep(delay)
     cam_position = angle
 
 def get_mov(coordinate):
@@ -283,9 +296,11 @@ def get_mov(coordinate):
     angle_print = math.degrees(angle)-270
     if angle_print<0:
         angle_print = 360+angle_print
+    if X<0 and Y>0:
+        angle_print = 360-angle_print
     print('angle',angle_print)
 
-    #movecamera(angle_print)
+    movecamera(angle_print)
 
     speedC=int(round(distance*math.sin((math.pi/2)-angle)))
     speedA=int(round(distance*math.sin((7*math.pi/6)-angle)))
@@ -320,7 +335,33 @@ def get_mov(coordinate):
     print('SpeedB: ',speedB)
     print('SpeedC: ',speedC)
 
-    return speedA, speedB, speedC
+    distA = speedA
+    distB = speedB
+    distC = speedC
+
+    table = []
+
+    table.append(speedA)
+    table.append(speedB)
+    table.append(speedC)
+        
+    if max(table) == speedA:
+        speedRA=MAX_SPEED
+        speedRB=(speedB*MAX_SPEED)/speedA
+        speedRC=(speedC*MAX_SPEED)/speedA
+        return distA, distB, distC, int(round(speedRA)), int(round(speedRB)), int(round(speedRC))
+    if max(table) == speedB:
+        speedRB=MAX_SPEED
+        speedRA=(speedA*MAX_SPEED)/speedB
+        speedRC=(speedC*MAX_SPEED)/speedB
+        return distA, distB, distC, int(round(speedRA)), int(round(speedRB)), int(round(speedRC))
+    if max(table) == speedC:
+        speedRC=MAX_SPEED
+        speedRB=(speedB*MAX_SPEED)/speedC
+        speedRA=(speedA*MAX_SPEED)/speedC
+        return distA, distB, distC, int(round(speedRA)), int(round(speedRB)), int(round(speedRC))
+
+    
 
 def get_rotation(coordinate):
     angle=coordinate[2] 
@@ -354,6 +395,8 @@ def ini_pins():
     GPIO.setup(LATCH,GPIO.OUT)
     GPIO.setup(VARIADOR,GPIO.OUT)
     GPIO.setup(TRIGER,GPIO.IN)
+
+    GPIO.setup(SELECTOR, GPIO.IN)
 
     GPIO.setup(DIR, GPIO.OUT)
     GPIO.setup(STEP, GPIO.OUT)
@@ -435,11 +478,11 @@ def main():
     # For each coordinate
     for c in coordinates:
         print('COORDINATES: ',c)
-        speedA, speedB, speedC=get_mov(c)
+        distA, distB, distC, speedA, speedB, speedC=get_mov(c)
 
-        setDistance(motorA, speedA*3)
-        setDistance(motorB, speedB*3)
-        setDistance(motorC, speedC*3)
+        setDistance(motorA, distA)
+        setDistance(motorB, distB)
+        setDistance(motorC, distC)
         setSpeedSetpoint(motorA,speedA)
         setSpeedSetpoint(motorB,speedB)
         setSpeedSetpoint(motorC,speedC)
